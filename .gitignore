@@ -9,6 +9,7 @@
 *.ipr
 *.iws
 *.iml
+*.ignore
 
 # Repository wide ignore mac DS_Store files
 .DS_Store

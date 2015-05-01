@@ -51,6 +51,7 @@
     <module>dashbuilder-shared</module>
     <module>dashbuilder-client</module>
     <module>dashbuilder-packaging</module>
+    <module>dashbuilder-remote</module>
     <module>dashbuilder-webapp</module>
   </modules>
 
