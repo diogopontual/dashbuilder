@@ -107,6 +107,11 @@
       <scope>provided</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.dashbuilder</groupId>
+      <artifactId>dashbuilder-rest-api</artifactId>
+    </dependency>
+
     <!-- UberFire -->
 
     <dependency>

@@ -26,21 +26,9 @@ public class DataSetService {
     DataSetManager dataSetManager;
 
 
-    /**
-     * Fetchs an returns the dataset metadata.
-     *
-     * @param uuid The uuid of the target dataset.
-     */
-    @Produces("application/json")
-    @Path("/{uuid}/metadata")
     @GET
-    public Map<String, Object> getMetadata(@PathParam("uuid") String uuid) {
-        DataSetMetadata metadata = dataSetManager.getDataSetMetadata(uuid);
-        Map<String, Object> response = new HashMap<String, Object>();
-        response.put("uuid", uuid);
-        response.put("columns", metadata.getNumberOfColumns());
-        response.put("rows", metadata.getNumberOfRows());
-        return response;
+    public String verifier() {
+        return "Its working!";
     }
 
     /**
@@ -52,27 +40,34 @@ public class DataSetService {
     @Produces("application/json")
     @Path("/{uuid}/rows/size")
     @GET
-    public Integer getRowsCount(@PathParam("uuid") String uuid) {
+    public Integer getCountOfRows(@PathParam("uuid") String uuid) {
         DataSetMetadata metadata = dataSetManager.getDataSetMetadata(uuid);
         return metadata.getNumberOfRows();
     }
 
     /**
-     * Returns the rows count of a dataset.
+     * Runs an aggregate function against a column of a dataset and returns the result.
      *
-     * @param uuid The uuid of the target dataset.
-     * @return The size of the dataset in rows.
+     * @param uuid      The uuid of a target dataset
+     * @param columName The column on which the aggregate function will be executed
+     * @param aggregateFunctionName The function to perform (sum, average...)
+     * @return
      */
     @Produces("application/json")
     @Path("/{uuid}/columns/{columnName}")
     @GET
-    public Integer getColumnValues(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String operation) {
+    public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) {
+        AggregateFunctionType fn = AggregateFunctionType.getByName(aggregateFunctionName);
+        if (fn == null) {
+            //todo throws and exception saying that the function does not exist.
+        }
         DataSet result = dataSetManager.lookupDataSet(
                 DataSetFactory.newDataSetLookupBuilder()
                         .dataset(uuid)
-                        .column(columName, AggregateFunctionType.valueOf(operation))
+                        .column(columName, fn)
                         .buildLookup());
-        return (Integer) result.getValueAt(0, 0);
+        //todo talk to David about the return - learn the api.
+        return result.getValueAt(0, 0);
     }
 
 
