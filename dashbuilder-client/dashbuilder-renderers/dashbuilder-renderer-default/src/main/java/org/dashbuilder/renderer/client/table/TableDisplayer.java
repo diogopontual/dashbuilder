@@ -274,8 +274,8 @@ public class TableDisplayer extends AbstractDisplayer {
     protected PagedTable<Integer> createTable() {
 
         final PagedTable<Integer> pagedTable = new PagedTable<Integer>(displayerSettings.getTablePageSize());
-        pagedTable.pageSizesSelector.setVisible(false);
-
+//        pagedTable.pageSizesSelector.setVisible(false);
+    
         List<DataColumn> dataColumns = dataSet.getColumns();
         for ( int i = 0; i < dataColumns.size(); i++ ) {
             DataColumn dataColumn = dataColumns.get(i);

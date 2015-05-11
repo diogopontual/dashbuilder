@@ -1,26 +1,27 @@
 package org.dashbuillder.remote.services.rest.api;
 
+
 import org.dashbuilder.dataset.DataSet;
 import org.dashbuilder.dataset.DataSetFactory;
 import org.dashbuilder.dataset.DataSetManager;
 import org.dashbuilder.dataset.DataSetMetadata;
-import org.dashbuilder.dataset.def.DataSetDef;
-import org.dashbuilder.dataset.group.AggregateFunction;
 import org.dashbuilder.dataset.group.AggregateFunctionType;
+import org.dashbuillder.remote.services.rest.BaseRestService;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import javax.ws.rs.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.Response;
 
-/**
- * Created by diogopontual on 30/04/15.
- */
-@ApplicationScoped
+@RequestScoped
 @Path("/datasets")
-public class DataSetService {
+public class DataSetService extends BaseRestService {
+
+    @Context
+    private HttpHeaders headers;
 
     @Inject
     DataSetManager dataSetManager;
@@ -37,23 +38,22 @@ public class DataSetService {
      * @param uuid The uuid of the target dataset.
      * @return The size of the dataset in rows.
      */
-    @Produces("application/json")
     @Path("/{uuid}/rows/size")
     @GET
-    public Integer getCountOfRows(@PathParam("uuid") String uuid) {
+    public Response getCountOfRows(@PathParam("uuid") String uuid) {
         DataSetMetadata metadata = dataSetManager.getDataSetMetadata(uuid);
-        return metadata.getNumberOfRows();
+        Integer value = metadata.getNumberOfRows();
+        return createSuccessResponse(value,headers);
     }
 
     /**
      * Runs an aggregate function against a column of a dataset and returns the result.
      *
-     * @param uuid      The uuid of a target dataset
-     * @param columName The column on which the aggregate function will be executed
+     * @param uuid                  The uuid of a target dataset
+     * @param columName             The column on which the aggregate function will be executed
      * @param aggregateFunctionName The function to perform (sum, average...)
      * @return
      */
-    @Produces("application/json")
     @Path("/{uuid}/columns/{columnName}")
     @GET
     public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) {
@@ -67,7 +67,7 @@ public class DataSetService {
                         .column(columName, fn)
                         .buildLookup());
         //todo talk to David about the return - learn the api.
-        return result.getValueAt(0, 0);
+        return createSuccessResponse(result.getValueAt(0, 0), headers);
     }
 
 
