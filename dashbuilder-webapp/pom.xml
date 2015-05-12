@@ -79,6 +79,12 @@
 
     <dependency>
       <groupId>org.dashbuilder</groupId>
+      <artifactId>dashbuilder-dataset-editor</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.dashbuilder</groupId>
       <artifactId>dashbuilder-displayer-editor</artifactId>
       <scope>provided</scope>
     </dependency>
@@ -206,6 +212,12 @@
       <scope>provided</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.uberfire</groupId>
+      <artifactId>uberfire-widgets-commons</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
     <!-- Log -->
 
     <dependency>
@@ -226,6 +238,11 @@
     </dependency>
 
     <!-- Errai -->
+
+    <dependency>
+      <groupId>org.jboss.errai</groupId>
+      <artifactId>errai-common</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>de.benediktmeurer.gwt-slf4j</groupId>
@@ -387,6 +404,7 @@
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-displayer-client</compileSourcesArtifact>
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-displayer-screen</compileSourcesArtifact>
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-displayer-editor</compileSourcesArtifact>
+            <compileSourcesArtifact>org.dashbuilder:dashbuilder-dataset-editor</compileSourcesArtifact>
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-renderer-default</compileSourcesArtifact>
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-renderer-google</compileSourcesArtifact>
             <compileSourcesArtifact>org.dashbuilder:dashbuilder-renderer-chartjs</compileSourcesArtifact>
@@ -426,7 +444,7 @@
           <extraJvmArgs>-Xmx2024m -XX:CompileThreshold=7000 -XX:MaxPermSize=512M -Derrai.jboss.home=${errai.jboss.home}</extraJvmArgs>
           <noServer>false</noServer>
           <server>org.jboss.errai.cdi.server.gwt.EmbeddedWildFlyLauncher</server>
-          <hostedWebapp>src/main/webapp</hostedWebapp>
+          <webappDirectory>${project.build.directory}/${project.build.finalName}</webappDirectory>
           <disableCastChecking>true</disableCastChecking>
         </configuration>
         <executions>
@@ -520,6 +538,7 @@
               <!-- Build all GWT permutations and optimize them -->
               <module>org.dashbuilder.DashbuilderShowcase</module>
               <draftCompile>false</draftCompile>
+              <force>true</force>
             </configuration>
           </plugin>
         </plugins>
