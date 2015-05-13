@@ -10,19 +10,20 @@ import java.util.List;
  * A parent class to all Rest Resources. It instrumentalizes the Resources with standardized methods to read and write the http headers...
  */
 public abstract class BaseRestService {
-    public static final String[] MEDIA_TYPES = {MediaType.APPLICATION_XML,MediaType.APPLICATION_JSON};
+    public static final String[] MEDIA_TYPES = {MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON};
 
 
     /**
      * Creates and returns a response with http code 200.
+     *
      * @param body
      * @return
      */
-    protected Response createSuccessResponse(Object body, HttpHeaders headers){
+    protected Response createSuccessResponse(Object body, HttpHeaders headers) {
         List<String> accept = headers.getRequestHeader(HttpHeaders.ACCEPT);
-        for(String s : accept){
+        for (String s : accept) {
             System.out.println(s);
-        }12
-        return Response.ok(body).header("Content-Type","application/json").build();
+        }
+        return Response.ok(body).header("Content-Type", "application/json").build();
     }
 }
