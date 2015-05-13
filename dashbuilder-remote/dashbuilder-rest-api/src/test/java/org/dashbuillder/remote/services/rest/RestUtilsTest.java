@@ -14,11 +14,15 @@ public class RestUtilsTest {
 
     @Test
     public void testChooseResponseContentType() throws Exception {
-        String url = "someResouce.xml?_contentType=xml";
         HttpHeaders headers = new HttpHeaders();
         headers.putRequestHeader(javax.ws.rs.core.HttpHeaders.ACCEPT, MediaType.APPLICATION_XML);
         headers.putRequestHeader(javax.ws.rs.core.HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
-        String[] MEDIA_TYPES = {MediaType.APPLICATION_XML,MediaType.APPLICATION_JSON};
-        RestUtils.chooseResponseContentType(url,null,headers,MEDIA_TYPES);
+        String[] MEDIA_TYPES = {MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON};
+        try {
+            String chosenType = RestUtils.chooseResponseContentType(headers, MEDIA_TYPES);
+            assertEquals("The type should be ", chosenType, MediaType.APPLICATION_XML);
+        } catch (NoSuitableContentTypeException nsctex) {
+            nsctex.printStackTrace();
+        }
     }
 }

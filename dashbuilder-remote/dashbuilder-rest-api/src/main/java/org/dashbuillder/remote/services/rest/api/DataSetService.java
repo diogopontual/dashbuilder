@@ -40,7 +40,7 @@ public class DataSetService extends BaseRestService {
      */
     @Path("/{uuid}/rows/size")
     @GET
-    public Response getCountOfRows(@PathParam("uuid") String uuid) {
+    public Response getCountOfRows(@PathParam("uuid") String uuid) throws Exception {
         DataSetMetadata metadata = dataSetManager.getDataSetMetadata(uuid);
         Integer value = metadata.getNumberOfRows();
         return createSuccessResponse(value,headers);
@@ -56,7 +56,7 @@ public class DataSetService extends BaseRestService {
      */
     @Path("/{uuid}/columns/{columnName}")
     @GET
-    public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) {
+    public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) throws Exception{
         AggregateFunctionType fn = AggregateFunctionType.getByName(aggregateFunctionName);
         if (fn == null) {
             //todo throws and exception saying that the function does not exist.

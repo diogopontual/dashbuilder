@@ -19,11 +19,11 @@ public abstract class BaseRestService {
      * @param body
      * @return
      */
-    protected Response createSuccessResponse(Object body, HttpHeaders headers) {
+    protected Response createSuccessResponse(Object body, HttpHeaders headers) throws NoSuitableContentTypeException{
         List<String> accept = headers.getRequestHeader(HttpHeaders.ACCEPT);
         for (String s : accept) {
             System.out.println(s);
         }
-        return Response.ok(body).header("Content-Type", "application/json").build();
+        return Response.ok(body).header("Content-Type", RestUtils.chooseResponseContentType(headers, MEDIA_TYPES)).build();
     }
 }

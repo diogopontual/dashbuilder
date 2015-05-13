@@ -15,22 +15,25 @@ import java.util.Map;
 public abstract class RestUtils {
 
     /**
-     * Apply the following rules to choose which of the availableMediaTypes should be user to respond:
+     * <p>Apply the following rules to choose which of the enabledContentTypes should be used to respond:</p>
      * <ol>
      * <li>URL suffix (xml or json);</li>
-     * <li>_contentType queryString parameter;</li>
      * <li>Request ACCEPT header;</li>
+     * <li>_contentType queryString parameter;</li>
      * </ol>
-     *
      */
-    public static void chooseResponseContentType(String url, Map<String,String> queryStringParams, HttpHeaders headers,String[] availableMediaTypes) {
+    public static String chooseResponseContentType(HttpHeaders headers,String[] enabledContentTypes) throws NoSuitableContentTypeException{
         List<String> acceptHeader = headers.getRequestHeader(HttpHeaders.ACCEPT);
         for (String acceptHeaderLine : acceptHeader) {
             String[] splitted = StringUtils.split(acceptHeaderLine, ',');
             for(String entry : splitted){
-                System.out.println(entry);
+                for(String enabled : enabledContentTypes) {
+                    if (entry.trim().toLowerCase().indexOf(enabled) == 0){
+                        return entry;
+                    }
+                }
             }
         }
-
+        throw new NoSuitableContentTypeException();
     }
 }
