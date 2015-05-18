@@ -27,7 +27,6 @@ import org.dashbuilder.client.widgets.dataset.editor.widgets.editors.DataSetColu
 import org.dashbuilder.client.widgets.resources.i18n.DataSetEditorConstants;
 import org.dashbuilder.dataprovider.DataSetProviderType;
 import org.dashbuilder.dataset.ColumnType;
-import org.dashbuilder.dataset.DataColumn;
 import org.dashbuilder.dataset.DataSet;
 import org.dashbuilder.dataset.DataSetMetadata;
 import org.dashbuilder.dataset.client.*;
@@ -36,7 +35,6 @@ import org.dashbuilder.dataset.events.DataSetDefRegisteredEvent;
 import org.dashbuilder.dataset.events.DataSetDefRemovedEvent;
 import org.dashbuilder.dataset.filter.DataSetFilter;
 import org.dashbuilder.dataset.group.DataSetGroup;
-import org.dashbuilder.dataset.impl.DataColumnImpl;
 import org.dashbuilder.displayer.DisplayerSettings;
 import org.dashbuilder.displayer.DisplayerSettingsFactory;
 import org.dashbuilder.displayer.TableDisplayerSettingsBuilder;
@@ -92,14 +90,16 @@ public class DataSetEditor implements IsWidget {
         View showHomeView(final int dsetCount, final ClickHandler newDataSetHandler);
         View showProviderSelectionView();
         View showBasicAttributesEditionView(final String uuid);
-        View showSQLAttributesEditorView(ClickHandler testHandler);
-        View showBeanAttributesEditorView(ClickHandler testHandler);
-        View showCSVAttributesEditorView(FormPanel.SubmitCompleteHandler submitCompleteHandler, ClickHandler testHandler);
-        View showELAttributesEditorView(ClickHandler testHandler);
+        View showSQLAttributesEditorView();
+        View showBeanAttributesEditorView();
+        View showCSVAttributesEditorView(FormPanel.SubmitCompleteHandler submitCompleteHandler);
+        View showELAttributesEditorView();
         View showPreviewTableEditionView(final Displayer tableDisplayer);
         View showColumnsEditorView(final List<DataColumnDef> columns, final DataSet dataSet, final DataSetColumnsEditor.ColumnsChangedEventHandler columnsChangedEventHandler);
         View showFilterEditionView(final DataSet dataSet, final DataSetFilterEditor.Listener filterListener);
         View showAdvancedAttributesEditionView();
+        View addTestButtonHandler(final ClickHandler testHandler);
+        View addBackToProviderConfButtonHandler(final ClickHandler testHandler);
         View showNextButton(String title, String helpText, ClickHandler nextHandler);
         View showCancelButton(ClickHandler cancelHandler);
         View onSave();
@@ -116,7 +116,7 @@ public class DataSetEditor implements IsWidget {
 
     private DataSetDef dataSetDef; 
     private List<DataColumnDef> columns;
-    private DataSetDef edit; 
+    private DataSetDef edited; 
     private Displayer tableDisplayer;
     private WorkflowView currentWfView;
     
@@ -141,7 +141,7 @@ public class DataSetEditor implements IsWidget {
         // Create a new data set def.
         this.dataSetDef = createDataSetDef(null);
 
-        edit = null;
+        edited = null;
         view.setEditMode(false);
 
         // Restart workflow.
@@ -164,8 +164,6 @@ public class DataSetEditor implements IsWidget {
             showError("DataSetEditor#editDataSet - No UUID specified.");
             return this;
         }
-        
-        clear();
 
         try {
             DataSetClientServices.get().fetchMetadata(uuid, new DataSetMetadataCallback() {
@@ -173,9 +171,16 @@ public class DataSetEditor implements IsWidget {
                 public void callback(DataSetMetadata metatada)
                 {
                     final DataSetDef def = metatada.getDefinition();
-                    edit = def;
                     
-                    // Clone the definition in order to edit the cloned copy.
+                    if (def == null) {
+                        showError(DataSetEditorConstants.INSTANCE.defNotFound());
+                        return;
+                    }
+
+                    clear();
+                    edited = def;
+
+                    // Clone the definition in order to edited the cloned copy.
                     DataSetEditor.this.dataSetDef = def.clone();
                     final String editionUUID = getEditionUUID(def);
                     DataSetEditor.this.dataSetDef.setUUID(editionUUID);
@@ -365,7 +370,7 @@ public class DataSetEditor implements IsWidget {
                         buildColumns(new DataSetMetadataCallback() {
                             @Override
                             public void callback(DataSetMetadata metatada) {
-                                if (edit == null) updateDataSetDefColumns(DataSetEditor.this.columns);
+                                if (edited == null) updateDataSetDefColumns(DataSetEditor.this.columns);
                                 updateTableDisplayer();
                             }
 
@@ -395,6 +400,15 @@ public class DataSetEditor implements IsWidget {
 
             }
             log(violations, violations);
+        }
+    };
+
+    private final ClickHandler backProviderConfButtonHandler = new ClickHandler() {
+
+        @Override
+        public void onClick(ClickEvent clickEvent) {
+            showBasicAttributesEditionView();
+            showProviderSpecificAttributesEditionView();
         }
     };
 
@@ -440,7 +454,7 @@ public class DataSetEditor implements IsWidget {
     }
 
     private void persist() {
-        if (edit == null) 
+        if (edited == null) 
         {
             // If creating a new data set, just persist it.
             dataSetDef.setPublic(true);
@@ -467,7 +481,7 @@ public class DataSetEditor implements IsWidget {
             // If editing an existing data set, remove original data set and persist the new edited one.
             final DataSetClientServices clientServices = DataSetClientServices.get();
 
-            final String editUUID = edit.getUUID();
+            final String editUUID = edited.getUUID();
             final String originalUUID = dataSetDef.getUUID();
             clientServices.removeDataSetDef(originalUUID, new DataSetDefRemoveCallback() {
                 @Override
@@ -475,7 +489,7 @@ public class DataSetEditor implements IsWidget {
                     clientServices.removeDataSetDef(editUUID, new DataSetDefRemoveCallback() {
                         @Override
                         public void success() {
-                            dataSetDef.setUUID(edit.getUUID());
+                            dataSetDef.setUUID(edited.getUUID());
                             dataSetDef.setPublic(true);
                             dataSetDef.setAllColumnsEnabled(false);
                             
@@ -521,7 +535,6 @@ public class DataSetEditor implements IsWidget {
     private final DataSetDefPersistCallback persistCallback = new DataSetDefPersistCallback() {
         @Override
         public void success() {
-            clear();
             showHomeView();
         }
 
@@ -615,25 +628,26 @@ public class DataSetEditor implements IsWidget {
     }
     
     private void showBasicAttributesEditionView() {
-        final String _uuid = edit != null ? edit.getUUID() : dataSetDef.getUUID();
-        view.showBasicAttributesEditionView(_uuid);
         currentWfView = WorkflowView.DATA_CONF;
+        final String _uuid = edited != null ? edited.getUUID() : dataSetDef.getUUID();
+        view.showBasicAttributesEditionView(_uuid);
     }
     
     private void showProviderSpecificAttributesEditionView() {
         currentWfView = WorkflowView.DATA_CONF;
+        view.addTestButtonHandler(testButtonHandler);
         switch (dataSetDef.getProvider()) {
             case SQL:
-                view.showSQLAttributesEditorView(testButtonHandler);
+                view.showSQLAttributesEditorView();
                 break;
             case CSV:
-                view.showCSVAttributesEditorView(submitCompleteHandler, testButtonHandler);
+                view.showCSVAttributesEditorView(submitCompleteHandler);
                 break;
             case BEAN:
-                view.showBeanAttributesEditorView(testButtonHandler);
+                view.showBeanAttributesEditorView();
                 break;
             case ELASTICSEARCH:
-                view.showELAttributesEditorView(testButtonHandler);
+                view.showELAttributesEditorView();
                 break;
         }
     }
@@ -658,7 +672,9 @@ public class DataSetEditor implements IsWidget {
 
     private void showPreviewTableEditionView() {
         currentWfView = WorkflowView.PREVIEW;
+        
         // Show table preview preview.
+        view.addBackToProviderConfButtonHandler(backProviderConfButtonHandler);
         view.showPreviewTableEditionView(tableDisplayer);
     }
     
@@ -684,7 +700,6 @@ public class DataSetEditor implements IsWidget {
                 removeDataSetDef(new DataSetDefRemoveCallback() {
                     @Override
                     public void success() {
-                        clear();
                         showHomeView();
                     }
 
@@ -695,7 +710,6 @@ public class DataSetEditor implements IsWidget {
                     }
                 });
             } else {
-                clear();
                 showHomeView();
             }
         }
@@ -773,19 +787,21 @@ public class DataSetEditor implements IsWidget {
                     ClientDataSetManager.get().registerDataSet(dataSet);
                     
                     // Original columns.
-                    final boolean isEdit = edit != null;
+                    final boolean isEdit = edited != null;
                     final WorkflowView v = currentWfView;
                     
                     // Build views.
                     showBasicAttributesEditionView();
                     if (isEdit && !v.equals(WorkflowView.ADVANCED)) showAdvancedAttributesEditionView();
-                    showPreviewTableEditionView();
                     
                     // Show initial filter and columns edition view.
                     if (!v.equals(WorkflowView.PREVIEW)) {
                         showColumnsEditorView(dataSet);
                         showFilterEditorView(dataSet);
                     }
+                    
+                    // Reload table preview.
+                    showPreviewTableEditionView();
 
                     if (isEdit) {
                         view.showNextButton(DataSetEditorConstants.INSTANCE.save(),
@@ -831,7 +847,7 @@ public class DataSetEditor implements IsWidget {
     private void clear() {
         this.dataSetDef = null;
         this.columns = null;
-        this.edit = null;
+        this.edited = null;
         this.tableDisplayer = null;
         view.clear();
     }
@@ -859,7 +875,7 @@ public class DataSetEditor implements IsWidget {
     private void onDataSetDefRemovedEvent(@Observes DataSetDefRemovedEvent event) {
         checkNotNull("event", event);
 
-        if(isHomeViewVisible() || (edit !=null && edit.getUUID().equals(event.getDataSetDef().getUUID()))) {
+        if(isHomeViewVisible() || (edited !=null && edited.getUUID().equals(event.getDataSetDef().getUUID()))) {
             // Reload home view with new data set count value.
             this.showHomeView();
         }
