@@ -16,7 +16,6 @@
 package org.dashbuilder.dataprovider.backend.sql;
 
 import java.sql.Connection;
-import java.sql.Timestamp;
 import java.util.*;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
@@ -160,7 +159,7 @@ public class SQLDataSetProvider implements DataSetProvider {
     public boolean isDataSetOutdated(DataSetDef def) {
 
         // Non fetched data sets can't get outdated.
-        DataSetMetadata last = _metadataMap.remove(def.getUUID());
+        MetadataHolder last = _metadataMap.remove(def.getUUID());
         if (last == null) return false;
 
         // Check if the metadata has changed since the last time it was fetched.
@@ -216,11 +215,26 @@ public class SQLDataSetProvider implements DataSetProvider {
     
     // Internal implementation logic
 
-    protected transient Map<String,DataSetMetadata> _metadataMap = new HashMap<String,DataSetMetadata>();
+    protected class MetadataHolder {
+
+        DataSetMetadata metadata;
+        Field[] jooqFields;
+
+        public Field getField(String name) {
+            for (Field jooqField : jooqFields) {
+                if (jooqField.getName().equals(name)) {
+                    return jooqField;
+                }
+            }
+            return null;
+        }
+    }
+
+    protected transient Map<String,MetadataHolder> _metadataMap = new HashMap<String,MetadataHolder>();
 
     protected DataSetMetadata _getDataSetMetadata(SQLDataSetDef def, Connection conn) throws Exception {
-        DataSetMetadata result = _metadataMap.get(def.getUUID());
-        if (result != null) return result;
+        MetadataHolder result = _metadataMap.get(def.getUUID());
+        if (result != null) return result.metadata;
 
         int estimatedSize = 0;
         int rowCount = _getRowCount(def, conn);
@@ -282,34 +296,17 @@ public class SQLDataSetProvider implements DataSetProvider {
             throw new IllegalArgumentException("No data set columns defined for the table '" + def.getDbTable() +
                     " in database '" + def.getDataSource()+ "'");
         }
-        _metadataMap.put(def.getUUID(), result =
-                new DataSetMetadataImpl(def, def.getUUID(), rowCount,
-                        columnIds.size(), columnIds, columnTypes, estimatedSize));
-        return result;
-    }
-
-    /**
-     * <p>Given a data source connection (database and schema), list existing tables.</p> 
-     * @param def The SQL data set definiton.
-     * @param conn The connection.
-     * @return The tables for the database and schema's connection.
-     */
-    public List<String> getTables(SQLDataSetDef def, Connection conn) {
-        List<Table<?>> tables = using(conn).meta().getTables();
-        if (tables != null && !tables.isEmpty()) {
-            List<String> result = new LinkedList<String>();
-            for (Table<?> table : tables) {
-                result.add(tables.get(0).getName());
-            }
-            return result;
-        }
-        return null;
+        result = new MetadataHolder();
+        result.jooqFields = _jooqFields;
+        result.metadata = new DataSetMetadataImpl(def, def.getUUID(), rowCount, columnIds.size(), columnIds, columnTypes, estimatedSize);
+        _metadataMap.put(def.getUUID(), result);
+        return result.metadata;
     }
 
     protected Field[] _getFields(SQLDataSetDef def, Connection conn) throws Exception {
         if (!StringUtils.isBlank(def.getDbSQL())) {
             return using(conn).select()
-                    .from("(" + def.getDbSQL() + ")")
+                    .from("(" + def.getDbSQL() + ") as dbSQL")
                     .limit(1).fetch().fields();
         }
         else {
@@ -352,8 +349,15 @@ public class SQLDataSetProvider implements DataSetProvider {
     }
 
     protected Field _getJooqField(SQLDataSetDef def, String name) {
-        if (def.getDbSchema() == null) return field(name);
-        else return fieldByName(def.getDbTable(), name);
+        MetadataHolder metadataHolder = _metadataMap.get(def.getUUID());
+        Field jooqField = metadataHolder != null ? metadataHolder.getField(name) : null;
+        if (jooqField == null) {
+            if (def.getDbSchema() == null) return field(name);
+            else return fieldByName(def.getDbTable(), name);
+        } else {
+            if (def.getDbSchema() == null) return field(name, jooqField.getDataType());
+            else return fieldByName(jooqField.getDataType(), def.getDbTable(), name);
+        }
     }
 
     protected Field _getJooqField(SQLDataSetDef def, String name, DataType type) {
@@ -367,7 +371,7 @@ public class SQLDataSetProvider implements DataSetProvider {
     }
 
     protected void _appendJooqFrom(SQLDataSetDef def, SelectSelectStep _jooqQuery) {
-        if (!StringUtils.isBlank(def.getDbSQL())) _jooqQuery.from("(" + def.getDbSQL() + ")");
+        if (!StringUtils.isBlank(def.getDbSQL())) _jooqQuery.from("(" + def.getDbSQL() + ") as dbSQL");
         else _jooqQuery.from(_getJooqTable(def));
     }
 
@@ -633,8 +637,7 @@ public class SQLDataSetProvider implements DataSetProvider {
                 for (GroupFunction gf : gOp.getGroupFunctions()) {
 
                     String sourceId = gf.getSourceId();
-                    if (sourceId != null) _assertColumnExists(sourceId);
-                    String columnId = gf.getColumnId() == null ?  sourceId : gf.getColumnId();
+                    String columnId = _getTargetColumnId(gf);
 
                     DataColumnImpl column = new DataColumnImpl();
                     column.setId(columnId);
@@ -696,7 +699,8 @@ public class SQLDataSetProvider implements DataSetProvider {
                 GroupFunction gf = groupOp.getGroupFunction(cg.getSourceId());
                 if (gf != null) {
                     DataSetSort sortOp = new DataSetSort();
-                    sortOp.addSortColumn(new ColumnSort(gf.getColumnId(), SortOrder.ASCENDING));
+                    String targetId = _getTargetColumnId(gf);
+                    sortOp.addSortColumn(new ColumnSort(targetId, SortOrder.ASCENDING));
                     postProcessingOps.add(sortOp);
                 }
             }
@@ -819,12 +823,13 @@ public class SQLDataSetProvider implements DataSetProvider {
                 DataSetGroup postGroup = groupOp.cloneInstance();
                 GroupFunction gf = postGroup.getGroupFunction(sourceId);
                 if (gf != null) {
-                    postGroup.getColumnGroup().setSourceId(gf.getColumnId());
-                    postGroup.getColumnGroup().setColumnId(gf.getColumnId());
+                    String targetId = _getTargetColumnId(gf);
+                    postGroup.getColumnGroup().setSourceId(targetId);
+                    postGroup.getColumnGroup().setColumnId(targetId);
                 }
                 for (GroupFunction pgf : postGroup.getGroupFunctions()) {
                     AggregateFunctionType pft = pgf.getFunction();
-                    pgf.setSourceId(pgf.getColumnId());
+                    pgf.setSourceId(_getTargetColumnId(pgf));
                     if (pft != null && (AggregateFunctionType.DISTINCT.equals(pft) || AggregateFunctionType.COUNT.equals(pft))) {
                         pgf.setFunction(AggregateFunctionType.SUM);
                     }
@@ -964,23 +969,24 @@ public class SQLDataSetProvider implements DataSetProvider {
         }
 
         protected Field _createJooqField(GroupFunction gf) {
-            String columnId = gf.getSourceId();
-            if (columnId == null) columnId = metadata.getColumnId(0);
-            else _assertColumnExists(columnId);
+            String sourceId = gf.getSourceId();
+            String targetId = gf.getColumnId();
+            if (sourceId == null) sourceId = metadata.getColumnId(0);
+            if (targetId == null) targetId = sourceId;
 
             // Raw column
             AggregateFunctionType ft = gf.getFunction();
-            Field _jooqField = _createJooqField(columnId);
-            if (ft == null) return _jooqField;
+            Field _jooqField = _createJooqField(sourceId);
+            if (ft == null) return _jooqField.as(targetId);
 
             // Aggregation function
-            if (AggregateFunctionType.SUM.equals(ft)) return _jooqField.sum();
-            if (AggregateFunctionType.MAX.equals(ft)) return _jooqField.max();
-            if (AggregateFunctionType.MIN.equals(ft)) return _jooqField.min();
-            if (AggregateFunctionType.AVERAGE.equals(ft)) return _jooqField.avg();
-            if (AggregateFunctionType.DISTINCT.equals(ft)) return _jooqField.countDistinct();
-            if (AggregateFunctionType.COUNT.equals(ft)) return _jooqField.count();
-            return _jooqField;
+            if (AggregateFunctionType.SUM.equals(ft)) return _jooqField.sum().as(targetId);
+            if (AggregateFunctionType.MAX.equals(ft)) return _jooqField.max().as(targetId);
+            if (AggregateFunctionType.MIN.equals(ft)) return _jooqField.min().as(targetId);
+            if (AggregateFunctionType.AVERAGE.equals(ft)) return _jooqField.avg().as(targetId);
+            if (AggregateFunctionType.DISTINCT.equals(ft)) return _jooqField.countDistinct().as(targetId);
+            if (AggregateFunctionType.COUNT.equals(ft)) return _jooqField.count().as(targetId);
+            return _jooqField.as(targetId);
         }
 
         protected Field _createJooqField(ColumnGroup cg) {
@@ -1096,6 +1102,12 @@ public class SQLDataSetProvider implements DataSetProvider {
             }
             throw new RuntimeException("Column '" + columnId +
                     "' not found in data set: " + metadata.getUUID());
+        }
+
+        protected String _getTargetColumnId(GroupFunction gf) {
+            String sourceId = gf.getSourceId();
+            if (sourceId != null) _assertColumnExists(sourceId);
+            return gf.getColumnId() == null ?  sourceId : gf.getColumnId();
         }
     }
 }

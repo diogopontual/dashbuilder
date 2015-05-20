@@ -16,10 +16,8 @@
 package org.dashbuilder.displayer.client.widgets;
 
 import javax.enterprise.context.Dependent;
-import javax.inject.Inject;
 
 import com.github.gwtbootstrap.client.ui.CheckBox;
-import com.github.gwtbootstrap.client.ui.Label;
 import com.github.gwtbootstrap.client.ui.Tab;
 import com.github.gwtbootstrap.client.ui.TabPanel;
 import com.github.gwtbootstrap.client.ui.constants.VisibilityChange;
@@ -30,17 +28,18 @@ import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Composite;
-import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Panel;
-import com.google.gwt.user.client.ui.SimplePanel;
 import com.google.gwt.user.client.ui.Widget;
 import org.dashbuilder.dataset.DataSetLookup;
 import org.dashbuilder.dataset.DataSetLookupConstraints;
 import org.dashbuilder.dataset.DataSetMetadata;
+import org.dashbuilder.dataset.client.DataSetClientServiceError;
 import org.dashbuilder.displayer.DisplayerSettings;
 import org.dashbuilder.displayer.DisplayerType;
+import org.dashbuilder.displayer.client.AbstractDisplayerListener;
 import org.dashbuilder.displayer.client.Displayer;
 import org.dashbuilder.displayer.client.DisplayerHelper;
+import org.dashbuilder.displayer.client.DisplayerListener;
 import org.dashbuilder.displayer.client.DisplayerLocator;
 import org.dashbuilder.displayer.client.resources.i18n.CommonConstants;
 
@@ -56,10 +55,10 @@ public class DisplayerEditorView extends Composite
         dataTablePanel.getElement().setAttribute("cellpadding", "5");
     }
 
-    @Inject
     public DisplayerEditorView(DisplayerTypeSelector typeSelector,
             DataSetLookupEditor lookupEditor,
             DisplayerSettingsEditor settingsEditor) {
+
         this();
         this.typeSelector = typeSelector;
         this.lookupEditor = lookupEditor;
@@ -72,30 +71,37 @@ public class DisplayerEditorView extends Composite
     protected DataSetLookupEditor lookupEditor;
     protected DisplayerSettingsEditor settingsEditor;
     protected Displayer displayer;
+    protected DisplayerEditorError errorWidget = new DisplayerEditorError();
+
+    DisplayerListener displayerListener = new AbstractDisplayerListener() {
+        public void onError(Displayer displayer, DataSetClientServiceError error) {
+            error(error);
+        }
+    };
 
     @UiField
-    protected Panel leftPanel;
+    public Panel leftPanel;
 
     @UiField
-    protected Panel centerPanel;
+    public Panel centerPanel;
 
     @UiField
-    protected TabPanel optionsPanel;
+    public TabPanel optionsPanel;
 
     @UiField
-    protected Tab optionType;
+    public Tab optionType;
 
     @UiField
-    protected Tab optionData;
+    public Tab optionData;
 
     @UiField
-    protected Tab optionSettings;
+    public Tab optionSettings;
 
     @UiField
-    protected Panel dataTablePanel;
+    public Panel dataTablePanel;
 
     @UiField
-    protected CheckBox viewAsTable;
+    public CheckBox viewAsTable;
 
     @Override
     public void init(DisplayerSettings settings, DisplayerEditor presenter) {
@@ -204,10 +210,23 @@ public class DisplayerEditorView extends Composite
     }
 
     @Override
-    public void error(String msg, Exception e) {
+    public void error(String message, Throwable e) {
+        String cause = e != null ? e.getMessage() : null;
+
         centerPanel.clear();
-        centerPanel.add(new Label(msg));
-        GWT.log(msg, e);
+        centerPanel.add(errorWidget);
+        errorWidget.show(message, cause);
+
+        if (e != null) GWT.log(message, e);
+        else GWT.log(message);
+    }
+
+    @Override
+    public void error(final DataSetClientServiceError error) {
+        String message = error.getThrowable() != null ? error.getThrowable().getMessage() : error.getMessage().toString();
+        Throwable e = error.getThrowable();
+        if (e.getCause() != null) e = e.getCause();
+        error(message, e);
     }
 
     @Override
@@ -229,20 +248,21 @@ public class DisplayerEditorView extends Composite
                 tableSettings.setTablePageSize(8);
                 tableSettings.setTableWidth(-1);
                 displayer = DisplayerLocator.get().lookupDisplayer(tableSettings);
+                displayer.addListener(displayerListener);
                 displayer.setRefreshOn(false);
                 centerPanel.clear();
                 centerPanel.add(displayer);
                 DisplayerHelper.draw(displayer);
             } else {
                 displayer = DisplayerLocator.get().lookupDisplayer(settings);
+                displayer.addListener(displayerListener);
                 displayer.setRefreshOn(false);
                 centerPanel.clear();
                 centerPanel.add(displayer);
                 DisplayerHelper.draw(displayer);
             }
         } catch (Exception e) {
-            centerPanel.clear();
-            centerPanel.add(new Label(e.getMessage()));
+            error(e.getMessage(), null);
         }
     }
 

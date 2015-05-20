@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015 JBoss Inc
+ * Copyright (C) 2014 JBoss Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dashbuilder.client.dashboard.events;
+package org.dashbuilder.dataprovider.backend.sql;
 
-import org.jboss.errai.common.client.api.annotations.Portable;
+public class SQLQueryDataSetLookupTest extends SQLTableDataSetLookupTest {
 
-@Portable
-public class DashboardDeletedEvent {
-
-    private String dashboardId;
-
-    public DashboardDeletedEvent() {
-    }
-
-    public DashboardDeletedEvent(String dashboardId) {
-        this.dashboardId = dashboardId;
-    }
-
-    public String getDashboardId() {
-        return dashboardId;
+    @Override public void setUp() throws Exception {
+        expenseReportsDsetFile = "expenseReports_query.dset";
+        super.setUp();
     }
 }

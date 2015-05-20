@@ -7,6 +7,8 @@ import javax.ws.rs.core.MediaType;
 
 import static org.junit.Assert.*;
 
+
+
 /**
  * Created by diogopontual on 12/05/15.
  */
