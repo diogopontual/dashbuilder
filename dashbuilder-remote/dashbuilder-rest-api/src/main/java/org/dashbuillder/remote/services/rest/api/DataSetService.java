@@ -1,10 +1,7 @@
 package org.dashbuillder.remote.services.rest.api;
 
 
-import org.dashbuilder.dataset.DataSet;
-import org.dashbuilder.dataset.DataSetFactory;
-import org.dashbuilder.dataset.DataSetManager;
-import org.dashbuilder.dataset.DataSetMetadata;
+import org.dashbuilder.dataset.*;
 import org.dashbuilder.dataset.group.AggregateFunctionType;
 import org.dashbuillder.remote.services.rest.BaseRestService;
 
@@ -43,7 +40,7 @@ public class DataSetService extends BaseRestService {
     public Response getCountOfRows(@PathParam("uuid") String uuid) throws Exception {
         DataSetMetadata metadata = dataSetManager.getDataSetMetadata(uuid);
         Integer value = metadata.getNumberOfRows();
-        return createSuccessResponse(value,headers);
+        return createSuccessResponse(value, headers);
     }
 
     /**
@@ -56,7 +53,7 @@ public class DataSetService extends BaseRestService {
      */
     @Path("/{uuid}/columns/{columnName}")
     @GET
-    public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) throws Exception{
+    public Object getComputedValuesOfColumn(@PathParam("uuid") String uuid, @PathParam("columnName") String columName, @QueryParam("op") String aggregateFunctionName) throws Exception {
         AggregateFunctionType fn = AggregateFunctionType.getByName(aggregateFunctionName);
         if (fn == null) {
             //todo throws and exception saying that the function does not exist.
@@ -68,6 +65,18 @@ public class DataSetService extends BaseRestService {
                         .buildLookup());
         //todo talk to David about the return - learn the api.
         return createSuccessResponse(result.getValueAt(0, 0), headers);
+    }
+
+    @Path("/{uuid}/rows/{row}")
+    @GET
+    public Object getRows(@PathParam("uuid") String uuid,@PathParam("row") int row, @QueryParam("columns") String columns) throws Exception {
+        String[] columnsArr = columns.split(",");
+        DataSetLookupBuilder builder = DataSetFactory.newDataSetLookupBuilder().dataset(uuid);
+        for (String c : columnsArr) {
+            builder.column(c);
+        }
+        DataSet result = dataSetManager.lookupDataSet(builder.buildLookup());
+        return createSuccessResponse(toArray(result),headers);
     }
 
 

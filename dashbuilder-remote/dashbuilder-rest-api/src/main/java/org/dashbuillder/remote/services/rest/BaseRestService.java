@@ -1,5 +1,7 @@
 package org.dashbuillder.remote.services.rest;
 
+import org.dashbuilder.dataset.DataColumn;
+import org.dashbuilder.dataset.DataSet;
 import org.jboss.resteasy.core.request.ServerDrivenNegotiation;
 
 import javax.ws.rs.core.*;
@@ -25,5 +27,18 @@ public abstract class BaseRestService {
             System.out.println(s);
         }
         return Response.ok(body).header("Content-Type", RestUtils.chooseResponseContentType(headers, MEDIA_TYPES)).build();
+    }
+
+    public Object toArray(DataSet dataSet){
+        int rowsCount =  dataSet.getRowCount();
+        List<DataColumn> columns = dataSet.getColumns();
+        Object[][] result = new Object[rowsCount][columns.size()];
+        for(int r = 0; r < rowsCount; r++){
+            for(int c = 0; c < columns.size(); c++){
+                result[r][c] = dataSet.getValueAt(r,c);
+            }
+
+        }
+        return result;
     }
 }
